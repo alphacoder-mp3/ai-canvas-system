@@ -2,64 +2,99 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Wand2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Wand2, Images } from 'lucide-react';
 import { toast } from 'sonner';
+import { AIService } from '@/services/ai-service';
 
-export function AITools() {
-  const [prompt, setPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+interface AIToolsProps {
+  currentImage?: string;
+  onEnhanced?: (enhancedImage: string) => void;
+  onVariations?: (variations: string[]) => void;
+}
 
-  const handleGenerate = async () => {
-    if (!prompt) {
-      toast('Error', {
-        description: 'Please enter a prompt',
-      });
+export function AITools({
+  currentImage,
+  onEnhanced,
+  onVariations,
+}: AIToolsProps) {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const aiService = AIService.getInstance();
+
+  const handleEnhance = async () => {
+    if (!currentImage) {
+      toast.error('No image to enhance');
       return;
     }
 
-    setIsGenerating(true);
+    setIsProcessing(true);
     try {
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate image');
-      }
-
-      await response.json();
-      // Handle the generated image URL
-      toast('Success', {
-        description: 'Image generated successfully',
-      });
+      const enhanced = await aiService.enhanceImage(currentImage);
+      onEnhanced?.(enhanced);
+      toast.success('Image enhanced successfully');
     } catch (error) {
-      console.error({ error });
-      toast('Error', {
-        description: 'Failed to generate image',
-      });
+      toast.error('Failed to enhance image');
+      console.error(error);
     } finally {
-      setIsGenerating(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleVariations = async () => {
+    if (!currentImage) {
+      toast.error('No image to generate variations from');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const variations = await aiService.generateVariations(currentImage);
+      onVariations?.(variations);
+      toast.success('Variations generated successfully');
+    } catch (error) {
+      toast.error('Failed to generate variations');
+      console.error(error);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
-        <Input
-          placeholder="Describe what you want to generate..."
-          value={prompt}
-          onChange={e => setPrompt(e.target.value)}
-        />
-        <Button onClick={handleGenerate} disabled={isGenerating}>
-          <Wand2 className="mr-2 h-4 w-4" />
-          Generate
-        </Button>
-      </div>
-    </div>
+    <Tabs defaultValue="enhance" className="w-full">
+      <TabsList className="grid w-full grid-cols-2">
+        <TabsTrigger value="enhance">Enhance</TabsTrigger>
+        <TabsTrigger value="variations">Variations</TabsTrigger>
+      </TabsList>
+      <TabsContent value="enhance">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Enhance your image with AI-powered improvements
+          </p>
+          <Button
+            onClick={handleEnhance}
+            disabled={isProcessing || !currentImage}
+            className="w-full"
+          >
+            <Wand2 className="mr-2 h-4 w-4" />
+            Enhance Image
+          </Button>
+        </div>
+      </TabsContent>
+      <TabsContent value="variations">
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Generate creative variations of your image
+          </p>
+          <Button
+            onClick={handleVariations}
+            disabled={isProcessing || !currentImage}
+            className="w-full"
+          >
+            <Images className="mr-2 h-4 w-4" />
+            Generate Variations
+          </Button>
+        </div>
+      </TabsContent>
+    </Tabs>
   );
 }
